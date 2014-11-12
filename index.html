@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+	<meta charset="UTF-8">
+	<title>Calligraphy Viz</title>
+	<style>
+		.axis text {
+			font: 10px sans-serif;
+		}
+		.axis line,
+		.axis path {
+			fill: none;
+			stroke: #000;
+			shape-rendering: crispEdges;
+		}
+	</style>
+</head>
+<body>
+	<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<script src="scripts/DBManager.js"></script>
+	<script>
+		var drawTimer;
+		var rollupDatas;
+
+		function initialize()
+		{
+			d3.csv("res/testData_2014_11_11_15_19_25_者.csv", function(data) {
+				//console.log(data);
+				rollupDatas = new Array();
+				for(var i = 0; i < data.length; i++) {
+					// pressure sensors
+					var plist = [data[i].p1, data[i].p2, data[i].p3,
+						data[i].p4, data[i].p5, data[i].p6,
+						data[i].p7, data[i].p8, data[i].p9,
+						data[i].p10, data[i].p11, data[i].p12,
+						data[i].p13, data[i].p14, data[i].p15];
+					// date
+					var strYear = data[i].date.substring(0, 4);
+					var strMonth = data[i].date.substring(5, 7);
+					var strDay = data[i].date.substring(8, 10);
+					var strHour = data[i].date.substring(11, 13);
+					var strMin = data[i].date.substring(14, 16);
+					var strSec = data[i].date.substring(17, 19);
+					var date = new Date(parseInt(strYear), parseInt(strMonth)-1, parseInt(strDay),
+						parseInt(strHour), parseInt(strMin), parseInt(strSec));
+					// accelerate
+					var idx = data[i].date.lastIndexOf(" ");
+					var accX = data[i].date.substring(idx);
+					var alist = [parseInt(accX), parseInt(data[i].accY), parseInt(data[i].accZ)];
+
+					rollupDatas.push({date:date, pSensors:plist, aSensor:alist});
+				}
+
+				// draw graph
+				drawGraph();
+			});
+		}
+		window.onload = initialize;
+
+		function drawGraph()
+		{
+			//console.log("drawGraph");
+			var margin = {top:20, right:20, bottom:70, left: 20};
+			var width = 1800;
+			var height = 700;
+
+			var xScale = d3.scale.linear()
+				.domain([0, rollupDatas.length-1])
+				.range([0, width]);
+			var rScale = d3.scale.linear()
+				.domain([0, 1024])
+				.range([1, 19]);
+			var c = d3.scale.category20c();
+
+			var svg = d3.select("body").append("svg")
+				.attr("width", width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+				.style("margin-left", margin.left + 'px')
+				.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			// ----------------------------------
+			//  Draw timeline
+			// ----------------------------------
+			var x = d3.time.scale().domain([rollupDatas[0].date, rollupDatas[rollupDatas.length-1].date]).range([0, width]);
+			var xAxis = d3.svg.axis().scale(x)
+				.orient("bottom").ticks(20)
+				.tickFormat(d3.time.format("%b %d  %I:%M:%S"));
+				//.tickFormat(d3.time.format("%Y %b %d %I:%M"));
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + (height - margin.bottom) + ")")
+				.call(xAxis)
+				.selectAll("text")
+				.attr("transform", function() { return "translate(-10, 50) rotate(-65)"});
+
+			// ----------------------------------
+			//  Draw graph
+			// ----------------------------------
+			var k = 0;
+			drawTimer = setInterval(function() {
+				var dobj = rollupDatas[k];
+				var g = svg.append("g");
+				var circles = g.selectAll("circle")
+					.data(dobj.pSensors)
+					.enter()
+					.append("circle")
+					.attr("cx", function() { return xScale(k); })
+					.attr("cy", function(d, i) { return i*40; })
+					.attr("r", function(d) { return rScale(d); })
+					.attr("fill", function(d, i) { return c(i); });
+
+				k += 1;
+				if(k >= rollupDatas.length) {
+					clearInterval(drawTimer);
+				}
+			}, 5);
+		}
+	</script>
+</body>
+</html>
